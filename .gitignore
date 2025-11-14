@@ -206,8 +206,15 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# DVC
-/data
+# DVC - Ignore data files but keep .dvc metadata files
+/data/raw/*.csv
+/data/raw/*.json
+/data/raw/*.parquet
+/data/raw/*.txt
+/data/processed/*.csv
+/data/processed/*.json
+/data/processed/*.parquet
+/data/processed/*.txt
 /outputs
 .dvc/cache
 .dvc/tmp

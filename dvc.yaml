@@ -1,0 +1,25 @@
+stages:
+  download_data:
+    cmd: venv/bin/python data_pipeline.py --download
+    deps:
+      - data_pipeline.py
+    outs:
+      - data/raw/iris_raw.csv
+    
+  perform_eda:
+    cmd: venv/bin/python data_pipeline.py --eda
+    deps:
+      - data_pipeline.py
+      - data/raw/iris_raw.csv
+    outs:
+      - data/processed/iris_modified.csv
+      - outputs/eda
+    
+  perform_pca:
+    cmd: venv/bin/python data_pipeline.py --pca
+    deps:
+      - data_pipeline.py
+      - data/processed/iris_modified.csv
+    outs:
+      - data/processed/iris_pca.csv
+      - outputs/pca

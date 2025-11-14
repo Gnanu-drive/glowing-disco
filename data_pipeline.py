@@ -40,9 +40,23 @@ def download_sample_data():
     """Download sample dataset (Iris dataset from sklearn)."""
     print("\nDownloading sample data...")
     try:
-        # Download Iris dataset
-        iris = fetch_openml('iris', version=1, as_frame=True, parser='auto')
-        df = iris.frame
+        # Try to download Iris dataset from sklearn/openml
+        try:
+            iris = fetch_openml('iris', version=1, as_frame=True, parser='auto')
+            df = iris.frame
+        except Exception as network_error:
+            print(f"  ⚠ Network download failed: {network_error}")
+            print("  Using built-in sklearn Iris dataset instead...")
+            # Use sklearn's built-in Iris dataset as fallback
+            from sklearn.datasets import load_iris
+            iris = load_iris()
+            df = pd.DataFrame(
+                data=iris.data,
+                columns=iris.feature_names
+            )
+            df['class'] = iris.target
+            # Map numeric class to string names
+            df['class'] = df['class'].map({0: 'Iris-setosa', 1: 'Iris-versicolor', 2: 'Iris-virginica'})
         
         # Save raw data
         raw_file = RAW_DATA_DIR / "iris_raw.csv"
@@ -345,9 +359,26 @@ def track_with_dvc(files_to_track):
             continue
         
         try:
+            # Try to use DVC from venv first, then system
+            dvc_paths = [
+                'venv/bin/dvc',  # Linux/macOS venv
+                'venv\\Scripts\\dvc.exe',  # Windows venv
+                'dvc'  # System DVC
+            ]
+            
+            dvc_cmd = None
+            for dvc_path in dvc_paths:
+                if Path(dvc_path).exists() or dvc_path == 'dvc':
+                    dvc_cmd = dvc_path
+                    break
+            
+            if not dvc_cmd:
+                print("  ✗ DVC not found. Please install DVC first.")
+                return
+            
             # Add file to DVC
             result = subprocess.run(
-                ['dvc', 'add', str(file_path)],
+                [dvc_cmd, 'add', str(file_path)],
                 capture_output=True,
                 text=True,
                 check=True
@@ -361,9 +392,8 @@ def track_with_dvc(files_to_track):
         
         except subprocess.CalledProcessError as e:
             print(f"  ✗ Error tracking {file_path}: {e.stderr}")
-        except FileNotFoundError:
-            print("  ✗ DVC not found. Please install DVC first.")
-            return
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
 
 
 def create_dvc_pipeline():
@@ -458,7 +488,7 @@ def main():
         df_modified = pd.read_csv(modified_file)
         perform_pca(df_modified)
         
-        # Step 4: Track with DVC
+        # Step 4: Track with DVC (simple file tracking)
         files_to_track = [
             "data/raw/iris_raw.csv",
             "data/processed/iris_modified.csv",
@@ -466,8 +496,9 @@ def main():
         ]
         track_with_dvc(files_to_track)
         
-        # Step 5: Create DVC pipeline
-        create_dvc_pipeline()
+        # Step 5: Create DVC pipeline (optional for advanced users)
+        print("\nNote: DVC pipeline configuration is also available.")
+        print("  For pipeline-based tracking, use: dvc repro")
         
         print("\n" + "=" * 80)
         print("WORKFLOW COMPLETED SUCCESSFULLY!")
@@ -485,11 +516,10 @@ def main():
         print("    - outputs/pca/*.png")
         print("  DVC files:")
         print("    - *.dvc files for tracked data")
-        print("    - dvc.yaml (pipeline configuration)")
         print("\nNext steps:")
         print("  1. Review the generated visualizations and reports")
         print("  2. Commit .dvc files to git: git add *.dvc .gitignore")
-        print("  3. Run DVC pipeline: dvc repro")
+        print("  3. Optional: Use DVC pipeline with 'dvc repro' for reproducible workflows")
         return
     
     # Run individual steps
